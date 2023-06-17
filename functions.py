@@ -1,24 +1,29 @@
 import cv2
 import numpy as np
 
-def findcontours(frame,threshold):
+def findcontours(frame, threshold):
     imgray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    imgray= cv2.medianBlur(imgray,5)
+    imgray = cv2.medianBlur(imgray, 5)
     ret, thresh = cv2.threshold(imgray, threshold, 255, cv2.THRESH_BINARY)
 
-    all_cnts, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    try:
+        all_cnts, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
-    # remove any contours that do not have a parent or child
-    wrong_cnts = []
-    for i,h in enumerate(hierarchy[0]):
-        if h[2] == -1 or h[3] == -1:
-            wrong_cnts.append(i)
-    cnts = [c for i, c in enumerate(all_cnts) if i not in wrong_cnts]
+        # remove any contours that do not have a parent or child
+        wrong_cnts = []
+        for i, h in enumerate(hierarchy[0]):
+            if h[2] == -1 or h[3] == -1:
+                wrong_cnts.append(i)
+        cnts = [c for i, c in enumerate(all_cnts) if i not in wrong_cnts]
 
-    # sort the contours to include only the three largest
-    cnts = sorted(cnts, key = cv2.contourArea, reverse = True)[:3]
+        # sort the contours to include only the three largest
+        cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:3]
+        return [all_cnts, cnts]
 
-    return [all_cnts,cnts]
+    except TypeError:
+        # Handle the case where hierarchy is None
+        print("No contours found.")
+        return [[],[]]
 
 
 def num_points_in_poly(frame,contour):
@@ -133,22 +138,6 @@ def warp(H,src,h,w):
     return new_img
 
 
-def fastwarp(H,src,h,w):
-    # create indices of the destination image and linearize them
-    indy, indx = np.indices((h, w), dtype=np.float32)
-    lin_homg_ind = np.array([indx.ravel(), indy.ravel(), np.ones_like(indx).ravel()])
-
-    # warp the coordinates of src to those of true_dst
-    map_ind = H.dot(lin_homg_ind)
-    map_x, map_y = map_ind[:-1]/map_ind[-1] 
-    map_x = map_x.reshape(h,w).astype(np.float32)
-    map_y = map_y.reshape(h,w).astype(np.float32)
-
-    new_img = cv2.remap(src, map_x, map_y, cv2.INTER_LINEAR)
-    
-    return new_img
-
-
 def encode_tag(square_img):
     report_img = np.zeros((square_img.shape[0],square_img.shape[0],3), np.uint8)
     dim = square_img.shape[0]
@@ -185,58 +174,27 @@ def encode_tag(square_img):
     cv2.putText(report_img,c,(4*k+int(k*.3),4*k+int(k*.7)),font,.6,(227,144,27),2)
 
     if encoding[5,5] == 1:
-        orientation = 3
         id_str = a+b+c+d
         center = (5*k+(k//2),5*k+(k//2))
         cv2.circle(report_img,center,k//4,(0,0,255),-1)
     elif encoding[2,5] == 1:
-        orientation = 2
         id_str = d+a+b+c
         center = (5*k+(k//2),2*k+(k//2))
         cv2.circle(report_img,center,k//4,(0,0,255),-1)
     elif encoding[2,2] == 1:
-        orientation = 1
         id_str = c+d+a+b
         center = (2*k+(k//2),2*k+(k//2))
         cv2.circle(report_img,center,k//4,(0,0,255),-1)
     elif encoding[5,2] == 1:
-        orientation = 0
         id_str = b+c+d+a
         center = (2*k+(k//2),5*k+(k//2))
         cv2.circle(report_img,center,k//4,(0,0,255),-1)
-    else:
-        orientation = 0
-        id_str = '0000'
+    else:        id_str = '0000'
 
-    return [report_img,id_str,orientation]
-
-
-def rotate_img(img,orientation):
-    if orientation == 1:
-        rotated_img = cv2.rotate(img,cv2.ROTATE_90_CLOCKWISE)
-    elif orientation == 2:
-        rotated_img = cv2.rotate(img,cv2.ROTATE_180)
-    elif orientation == 3:
-        rotated_img = cv2.rotate(img,cv2.ROTATE_90_COUNTERCLOCKWISE)
-    else:
-        rotated_img = img
-
-    return rotated_img
+    return [report_img,id_str]
 
 
 def blank_region(frame,contour,color):
     cv2.drawContours(frame,[contour],-1,(color),thickness=-1)
     return frame
-
-
-        
-
-
-
-
-
-
-
-
-
 
