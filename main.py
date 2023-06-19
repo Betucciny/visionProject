@@ -6,6 +6,7 @@ import time
 
 tag_ids = ['0101', '0111', '1111']
 img_paths = ['1.jpg', '2.jpg', '3.jpg']
+resize = True
 
 # read the images into memory
 imgs = []
@@ -25,7 +26,8 @@ while True:
     # approximate quadralateral to each contour and extract corners
     [tag_cnts, corners] = approx_quad(cnts)
     # cv2.drawContours(frame, all_cnts, -1, (0, 255, 0), 4)
-    cv2.drawContours(frame, tag_cnts, -1, (255, 0, 0), 4)
+    cv2.drawContours(frame, cnts,-1, (255, 0, 0), 4)
+    cv2.drawContours(frame, all_cnts, -1, (0, 0, 255), 4)
 
     for i, tag in enumerate(corners):
         # find number of points in the polygon
@@ -48,15 +50,17 @@ while True:
         # decode squared tile
         [tag_img, id_str] = encode_tag(square_img)
 
+
         if id_str in tag_ids:
             index = tag_ids.index(id_str)
             new_img = imgs[index]
+            if resize:
+                new_img = cv2.resize(new_img, (dim, dim))
         else:
             continue
 
         # superimpose the image on the tag
         dim = new_img.shape[0]
-        H = homography(tag, dim)
         h = frame.shape[0]
         w = frame.shape[1]
         frame1 = warp(H, new_img, h, w)
